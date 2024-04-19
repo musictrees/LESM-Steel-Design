@@ -17,7 +17,12 @@ classdef Material < handle
         poisson    = 0;   % poisson ratio
         shear      = 0;   % shear modulus
         thermExp   = 0;   % thermal expansion coefficient
-        density    = 0;   % mass density
+        density    = 0;   % mass density     
+        
+        %ronald
+              
+        leakage=0;        % tension leakage 
+        yield =0;         %  yield strength
     end
     
     %% Constructor method

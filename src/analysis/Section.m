@@ -20,6 +20,24 @@ classdef Section < handle
         inertia_z = 0;   % moment of inertia relative to local z-axis (bending inertia)
         height_y  = 0;   % height relative to local y-axis
         height_z  = 0;   % height relative to local z-axis
+
+            %RONALD
+        type=[];
+        Ag = 0;        
+        Ix = 0;        
+        Wx = 0;
+        Wy = 0;
+        rx = 0;
+        Iy = 0;        
+        ry = 0;
+        lambida = 0;
+        mpl = 0;
+        mply = 0;
+        cw = 0;
+        r0 = 0;
+        J = 0;
+        Zx=0;
+        Zy=0;
     end
     
     %% Constructor method
