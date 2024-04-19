@@ -1,0 +1,115 @@
+%HEADER.VERSION
+3.0
+
+%HEADER.ANALYSIS
+'TRUSS2D'
+
+%HEADER.ANALYSIS.ALGORITHM
+'STATIC_LINEAR'
+
+%HEADER.ANALYSIS.TIME.STEPS
+100000
+
+%HEADER.ANALYSIS.TOLERANCE
+10
+
+%MODEL.PROPERTY.DAMPING
+2
+5.000000e-01  0
+
+%MODEL.PROPERTY.MASS
+1 1
+
+%MODEL.PROPERTY.MODES
+3
+
+%NODE.COORD
+3
+1     0  0  0
+2     3  3  0
+3     6  0  0
+
+%NODE.SUPPORT
+3
+1     1  1  0  0  0  0
+2     0  0  0  0  0  0
+3     2  1  0  0  0  0
+
+%NODE.INCLINED.SUPPORT
+1
+3     7.071068e-01  -7.071068e-01  0  0  0  0  0
+
+%NODE.SUPPORT.SPRING
+1
+3     1000  0  0  0  0  0
+
+%NODE.INITIAL.CONDITIONS
+3
+1     0  0  0  0  0  0     0  0  0  0  0  0
+2     0  1.000000e-02  0  0  0  0     0  0  0  0  0  0
+3     0  0  0  0  0  0     0  0  0  0  0  0
+
+%LOAD.CASE.TIME.FUNCTION
+0
+
+%LOAD.CASE.NODAL.FORCE.DYNAMIC
+1
+2     0  0  0  0  0  0    0
+
+%LOAD.CASE.NODAL.MASS.DYNAMIC
+1
+2     100
+
+%MATERIAL.ISOTROPIC
+1
+1     100000  3.000000e-01  1.000000e-05  1000
+
+%SECTION.PROPERTY
+1
+1     100  3000  3000  1.836000e+06  1080000  1080000  10  60
+
+%BEAM.END.LIBERATION
+9
+1     1  1  1  1  1  1  1  1  1  1  1  1
+2     1  1  1  0  0  0  1  1  1  1  1  1
+3     1  1  1  1  1  1  1  1  1  0  0  0
+4     1  1  1  0  0  0  1  1  1  0  0  0
+5     1  1  1  1  1  1  1  1  1  2  2  2
+6     1  1  1  2  2  2  1  1  1  1  1  1
+7     1  1  1  0  0  0  1  1  1  2  2  2
+8     1  1  1  2  2  2  1  1  1  0  0  0
+9     1  1  1  2  2  2  1  1  1  2  2  2
+
+%ELEMENT.BEAM
+3
+1     0  1  1  1  4  1  2  0  0  1
+2     0  1  1  1  4  2  3  0  0  1
+3     0  1  1  1  4  3  1  0  0  1
+
+%LOAD
+2
+CASE 01
+CASE 02
+
+%LOAD.COMBINATION
+1
+COMB 01
+2.000000  1.500000
+
+%LOAD.CASE
+1
+
+%LOAD.CASE.NODAL.CASES
+1
+
+2     0  -500  0  0  0  0  0  0  0  0  0  0      2
+      100  0  0  0  0  0  0  0  0  0  0  0
+
+
+%LOAD.CASE.BEAM.CASES
+1
+
+2     0  0  0  0  0  0  0  0  0  0  0  0  0  0      1
+
+
+%END

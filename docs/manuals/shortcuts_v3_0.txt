@@ -1,0 +1,20 @@
+Keyboard shortcuts for version 3.0:
+  CTRL+N = New model
+  CTRL+O = Open model
+  CTRL+S = Save model
+  ENTER  = Run analysis 
+  ESCAPE = Unselect all entities and return to cursor mode
+  DELETE = Delete selected entity (node or element)
+  N      = Node insertion mode
+  E      = Element insertion mode
+  F      = Fit model to view
+  R      = Redraw
+  I      = Show nodes ID
+  J      = Show elements ID
+  O      = Show elements orientation
+
+Mouse shortcuts for version 3.0 (for actions executed on canvas):
+  Double click          = Fit model to view
+  Scroll                = Zoom in/out
+  Scroll click-and-hold = Pan
+  Right click-and-hold  = Camera rotation (3D only)
