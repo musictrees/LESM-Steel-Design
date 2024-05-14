@@ -514,6 +514,373 @@ classdef Model < handle
             % global forcing vector
             model.F(gle) = model.F(gle) + model.elems(e).rot_inclSupp * feg;
         end
+        %------------------------------------------------------------------
+        %ronald
+        function designSolver(model,standard,fid)
+            model.standard=standard;
+            
+         %%put parts of moment xy in group(bending)
+         for i=1:length(model.allStructuralGroups)
+             M = zeros(model.nlc,50*length(model.allStructuralGroups(i).elems));
+             for e = 1:length(model.allStructuralGroups(i).elems)
+                 for lc = 1:model.nlc
+                     x = linspace(0,1,50);
+                     model.assembleLoadCase(lc);
+                     [M(lc,((e-1)*50+1):e*50),~] = model.allStructuralGroups(i).elems(e).intBendingMoment_XY(model.allStructuralGroups(i).elems(e).length*x,lc);
+                 end
+                 
+             end
+             model.assembleLoadCase(model.current_lc);
+             
+             model.allStructuralGroups(i).bending_XY=M; %REVISAR
+             %alterar RONALD quando trocar a funcão para bending
+             %moments
+             for mPos=1:1:size(M,1)
+                 model.loadsInfomartions(mPos).load=M(mPos,:);
+             end
+             currentGroupLoadsInfomartionsLoad=transpose(model.loadsInfomartions);
+           
+            
+             model.allStructuralGroups(i).bendingCases_XY=combinationLoads(currentGroupLoadsInfomartionsLoad);
+             model.allStructuralGroups(i).bendingCases_XY;
+             model.allStructuralGroups(i).getMaxBending();
+         end
+         %%
+            %Shear       
+            for i=1:length(model.allStructuralGroups)
+                M = zeros(model.nlc,50*length(model.allStructuralGroups(i).elems));
+                for e = 1:length(model.allStructuralGroups(i).elems)
+                    for lc = 1:model.nlc
+                        x = linspace(0,1,50);
+                        model.assembleLoadCase(lc);
+                        [M(lc,((e-1)*50+1):e*50),~] = model.allStructuralGroups(i).elems(e).intShearForce_XY(model.allStructuralGroups(i).elems(e).length*x,lc);
+                    end
+                    
+                end
+                model.assembleLoadCase(model.current_lc);
+                
+                model.allStructuralGroups(i).shear_XY=M; %REVISAR
+                %alterar RONALD quando trocar a funcão para bending
+                %moments
+                for mPos=1:1:size(M,1)
+                    model.loadsInfomartions(mPos).load=M(mPos,:);
+                end
+                currentGroupLoadsInfomartionsLoad=transpose(model.loadsInfomartions);
+                model.allStructuralGroups(i).shearCases_XY=combinationLoads(currentGroupLoadsInfomartionsLoad);
+                model.allStructuralGroups(i).getMaxShear();
+                
+            end
+            %%   
+            
+             %%
+            %AXIAL       
+            for i=1:length(model.allStructuralGroups)
+                M = zeros(model.nlc,50*length(model.allStructuralGroups(i).elems));
+                for e = 1:length(model.allStructuralGroups(i).elems)
+                    for lc = 1:model.nlc
+                        x = linspace(0,1,50);
+                        model.assembleLoadCase(lc);
+                        [M(lc,((e-1)*50+1):e*50),~] = model.allStructuralGroups(i).elems(e).intAxialForce(model.allStructuralGroups(i).elems(e).length*x,lc);
+                    end
+                    
+                end
+                model.assembleLoadCase(model.current_lc);
+                
+                model.allStructuralGroups(i).axialForce=M; %REVISAR
+                %alterar RONALD quando trocar a funcão para bending
+                %moments
+                for mPos=1:1:size(M,1)
+                    model.loadsInfomartions(mPos).load=M(mPos,:);
+                end
+                currentGroupLoadsInfomartionsLoad=transpose(model.loadsInfomartions);
+                model.allStructuralGroups(i).axialForceCases=combinationLoads(currentGroupLoadsInfomartionsLoad);
+                
+                model.allStructuralGroups(i).separeTractionCases();%function to separe axial(traction) forces
+                model.allStructuralGroups(i).separeCompressCases();%function to separe axial(compress) forces
+                model.allStructuralGroups(i).getMaxCompress();%function to get max value(compress).
+                model.allStructuralGroups(i).getMaxTraction();%function to get max value(traction)
+            end
+            %% 
+             
+            setappdata(0,'allStructuralGroups',model.allStructuralGroups);
+             for i=1:1:size(model.allStructuralGroups ,2)
+                  model.standard.solve(model.allStructuralGroups(i),fid,i);
+             end
+            
+        end
+        %------------------------------------------------------------------
+        %ronald
+        % Feeds lelem and lnode objects with load case (or combination)
+        % associated to index lc
+        function assembleLoadCase(model,lc)
+            % Need to check if lc reffers to load case of combination
+            if lc <= model.nlc % load case
+                 % Allocate nodal loads and prescribed displacements in each Node object
+                 % obs.: nodalLoadCase(:,i) = [ fx
+                 %                              fy
+                 %                              fz     (nodalLoadCase is a matrix, each
+                 %                              mx      column refers to one specific
+                 %                              my      load case)
+                 %                              mz
+                 %                              dx
+                 %                              dy
+                 %                              dz
+                 %                              rx
+                 %                              ry
+                 %                              rz ]
+                 for n = 1:model.nnp
+                     if isempty(model.nodes(n).nodalLoadCase) == 0 && lc <= size(model.nodes(n).nodalLoadCase,2)
+                         if all(model.nodes(n).nodalLoadCase(1:6,lc) == 0)
+                             model.nodes(n).load.static = [];
+                         else %if there are any nodal loads, set them to load.static
+                             model.nodes(n).load.static = model.nodes(n).nodalLoadCase(1:6,lc);
+                         end
+                         if size(model.nodes(n).nodalLoadCase,1) <= 6
+                             model.nodes(n).prescDispl = [];
+                         elseif all(model.nodes(n).nodalLoadCase(7:12,lc) == 0)
+                             model.nodes(n).prescDispl = [];
+                         else %if there are any prescribed displacements, set them to prescDispl
+                             model.nodes(n).prescDispl = model.nodes(n).nodalLoadCase(7:12,lc);
+                         end
+                     else
+                         model.nodes(n).load.static = [];
+                         model.nodes(n).prescDispl = [];
+                     end
+                 end
+                 
+                 % Allocate element loads (distributed loads and thermal loads) in each
+                 % Lelem object
+                 % obs.: elemLoadCase(:,i) = [  unifDir
+                 %                                qx
+                 %                                qy
+                 %                                qz        (elemLoadCase is a matrix,
+                 %                             linearDir     each column refers to one
+                 %                                qx1        specific load case)
+                 %                                qy1
+                 %                                qz1
+                 %                                qx2
+                 %                                qy2
+                 %                                qz2
+                 %                                dtx
+                 %                                dty
+                 %                                dtz   ]
+                 for e = 1:model.nel
+                     if isempty(model.elems(e).load.elemLoadCase) == 0 && lc <= size(model.elems(e).load.elemLoadCase,2)
+                         % Clear previous uniform loads
+                         model.elems(e).load.uniformGbl = [];
+                         model.elems(e).load.uniformLcl = [];
+                         if all(model.elems(e).load.elemLoadCase(2:4,lc) == 0)
+                             model.elems(e).load.uniformDir = 0;
+                         else  % if there are uniform loads, set their local and global components
+                             model.elems(e).load.uniformDir = model.elems(e).load.elemLoadCase(1,lc);
+                             model.elems(e).load.setUnifLoad((model.elems(e).load.elemLoadCase(2:4,lc))',model.elems(e).load.elemLoadCase(1,lc));
+                         end
+                         % Clear previous linear loads
+                         model.elems(e).load.linearGbl = [];
+                         model.elems(e).load.linearLcl = [];
+                         if size(model.elems(e).load.elemLoadCase,1) <= 5
+                             model.elems(e).load.linearDir = 0;
+                         elseif all(model.elems(e).load.elemLoadCase(6:11,lc) == 0)
+                             model.elems(e).load.linearDir = 0;
+                         else  % if there are linear loads, set their local and global components
+                             model.elems(e).load.linearDir = model.elems(e).load.elemLoadCase(5,lc);
+                             model.elems(e).load.setLinearLoad((model.elems(e).load.elemLoadCase(6:11,lc))',model.elems(e).load.elemLoadCase(5,lc));
+                             % Avoids numeric problems with new loads
+                             if model.elems(e).load.linearDir == 0
+                                 for i = 1:size(model.elems(e).load.linearLcl,1)
+                                     if abs(model.elems(e).load.linearLcl(i)) <= 10^-10
+                                         model.elems(e).load.linearLcl(i) = 0;
+                                     end
+                                 end
+                             elseif model.elems(e).load.linearDir == 1
+                                 for i = 1:size(model.elems(e).load.linearGbl,1)
+                                     if abs(model.elems(e).load.linearGbl(i)) <= 10^-10
+                                         model.elems(e).load.linearGbl(i) = 0;
+                                     end
+                                 end
+                             end
+                         end
+                         % Set thermal loads
+                         if size(model.elems(e).load.elemLoadCase,1) <= 11
+                             model.elems(e).load.tempVar_X = 0;
+                             model.elems(e).load.tempVar_Y = 0;
+                             model.elems(e).load.tempVar_Z = 0;
+                         else
+                             model.elems(e).load.tempVar_X = model.elems(e).load.elemLoadCase(12,lc);
+                             model.elems(e).load.tempVar_Y = model.elems(e).load.elemLoadCase(13,lc);
+                             model.elems(e).load.tempVar_Z = model.elems(e).load.elemLoadCase(14,lc);
+                         end
+                     else
+                         model.elems(e).load.uniformDir = 0;
+                         model.elems(e).load.uniformGbl = [];
+                         model.elems(e).load.uniformLcl = [];
+                         model.elems(e).load.linearDir = 0;
+                         model.elems(e).load.linearGbl = [];
+                         model.elems(e).load.linearLcl = [];
+                         model.elems(e).load.tempVar_X = 0;
+                         model.elems(e).load.tempVar_Y = 0;
+                         model.elems(e).load.tempVar_Z = 0;
+                     end
+                 end
+                 
+            else % lc is a load combination
+                % Consider load cases factors for the selected combination and allocate
+                % the resulting nodal loads and prescribed displacements in each Node
+                % object.
+                % obs.: nodalLoadCase(:,i) = [ fx
+                %                              fy
+                %                              fz     (nodalLoadCase is a matrix, each
+                %                              mx      column refers to a specific load
+                %                              my      case)
+                %                              mz
+                %                              dx
+                %                              dy
+                %                              dz
+                %                              rx
+                %                              ry
+                %                              rz ]
+                %
+                % obs.2: loadComb is a matrix that holds combination factors for load
+                % case combinations, where each column refers to a specific load comb.
+                
+                for n = 1:model.nnp
+                    if isempty(model.nodes(n).nodalLoadCase) == 0
+                        allLogic = all(model.nodes(n).nodalLoadCase(1:6,:) == 0);
+                        if all(allLogic == 1)
+                            model.nodes(n).load.static = [];
+                        else  % if there are nodal loads, ,multiply them by their
+                            % proper comb factors, sum the results and set them to
+                            % load.static.
+                            model.nodes(n).load.static(1) = model.nodes(n).nodalLoadCase(1,:) * model.loadComb(1:size(model.nodes(n).nodalLoadCase,2),lc-model.nlc);
+                            model.nodes(n).load.static(2) = model.nodes(n).nodalLoadCase(2,:) * model.loadComb(1:size(model.nodes(n).nodalLoadCase,2),lc-model.nlc);
+                            model.nodes(n).load.static(3) = model.nodes(n).nodalLoadCase(3,:) * model.loadComb(1:size(model.nodes(n).nodalLoadCase,2),lc-model.nlc);
+                            model.nodes(n).load.static(4) = model.nodes(n).nodalLoadCase(4,:) * model.loadComb(1:size(model.nodes(n).nodalLoadCase,2),lc-model.nlc);
+                            model.nodes(n).load.static(5) = model.nodes(n).nodalLoadCase(5,:) * model.loadComb(1:size(model.nodes(n).nodalLoadCase,2),lc-model.nlc);
+                            model.nodes(n).load.static(6) = model.nodes(n).nodalLoadCase(6,:) * model.loadComb(1:size(model.nodes(n).nodalLoadCase,2),lc-model.nlc);
+                            if all(model.nodes(n).load.static == 0)
+                                model.nodes(n).load.static = [];
+                            end
+                        end
+                        if size(model.nodes(n).nodalLoadCase,1) <= 6
+                            allLogic = 1;
+                        else
+                            allLogic = all(model.nodes(n).nodalLoadCase(7:12,:) == 0);
+                        end
+                        if all(allLogic == 1)
+                            model.nodes(n).prescDispl = [];
+                        else  % if there are prescribed displacements, ,multiply them
+                            % by their proper comb factors, sum the results and set
+                            % them to prescDispl.
+                            model.nodes(n).prescDispl(1) = model.nodes(n).nodalLoadCase(7,:) * model.loadComb(1:size(model.nodes(n).nodalLoadCase,2),lc-model.nlc);
+                            model.nodes(n).prescDispl(2) = model.nodes(n).nodalLoadCase(8,:) * model.loadComb(1:size(model.nodes(n).nodalLoadCase,2),lc-model.nlc);
+                            model.nodes(n).prescDispl(3) = model.nodes(n).nodalLoadCase(9,:) * model.loadComb(1:size(model.nodes(n).nodalLoadCase,2),lc-model.nlc);
+                            model.nodes(n).prescDispl(4) = model.nodes(n).nodalLoadCase(10,:) * model.loadComb(1:size(model.nodes(n).nodalLoadCase,2),lc-model.nlc);
+                            model.nodes(n).prescDispl(5) = model.nodes(n).nodalLoadCase(11,:) * model.loadComb(1:size(model.nodes(n).nodalLoadCase,2),lc-model.nlc);
+                            model.nodes(n).prescDispl(6) = model.nodes(n).nodalLoadCase(12,:) * model.loadComb(1:size(model.nodes(n).nodalLoadCase,2),lc-model.nlc);
+                            if all(model.nodes(n).prescDispl == 0)
+                                model.nodes(n).prescDispl = [];
+                            end
+                        end
+                    else
+                        model.nodes(n).load.static = [];
+                        model.nodes(n).prescDispl = [];
+                    end
+                end
+                
+                % Consider load cases factors for the selected combination and allocate
+                % the resulting element loads and prescribed displacements in each
+                % Lelem object.
+                % obs.: elemLoadCase(:,i) = [  unifDir
+                %                                qx
+                %                                qy
+                %                                qz        (elemLoadCase is a matrix,
+                %                             linearDir     each column refers to a
+                %                                qx1        specific load case)
+                %                                qy1
+                %                                qz1
+                %                                qx2
+                %                                qy2
+                %                                qz2
+                %                                dtx
+                %                                dty
+                %                                dtz   ]
+                %
+                % obs.2: loadComb is a matrix that holds combination factors for load
+                % case combinations, where each column refers to a specific load comb.
+                
+                for e = 1:model.nel
+                    if isempty(model.elems(e).load.elemLoadCase) == 0
+                        % Clear previous uniform loads
+                        model.elems(e).load.uniformGbl = [];
+                        model.elems(e).load.uniformLcl = [];
+                        allLogic = all(model.elems(e).load.elemLoadCase(2:4,:) == 0);
+                        if all(allLogic == 1)
+                            model.elems(e).load.uniformDir = 0;
+                        else  % if there are uniform loads, set their local and global
+                            % components and consider their comb factors
+                            unifLoad = zeros(size(model.elems(e).load.elemLoadCase,2),3);
+                            for i = 1:size(model.elems(e).load.elemLoadCase,2)
+                                unifLoad(i,:) = model.loadComb(i,lc-model.nlc) * model.elems(e).load.elemLoadCase(2:4,i);
+                                if ~all(unifLoad(i,:) == 0)
+                                    model.elems(e).load.setUnifLoad(unifLoad(i,:),model.elems(e).load.elemLoadCase(1,i));
+                                end
+                            end
+                        end
+                        
+                        % Clear previous linear loads
+                        model.elems(e).load.linearGbl = [];
+                        model.elems(e).load.linearLcl = [];
+                        if size(model.elems(e).load.elemLoadCase,1) <= 5
+                            allLogic = 1;
+                        else
+                            allLogic = all(model.elems(e).load.elemLoadCase(6:11,:) == 0);
+                        end
+                        if all(allLogic == 1)
+                            model.elems(e).load.linearDir = 0;
+                        else  % if there are linear loads, set their local and global
+                            % components and consider their comb factors
+                            linLoad = zeros(size(model.elems(e).load.elemLoadCase,2),6);
+                            for i = 1:size(model.elems(e).load.elemLoadCase,2)
+                                linLoad(i,:) = model.loadComb(i,lc-model.nlc) * model.elems(e).load.elemLoadCase(6:11,i);
+                                if ~all(linLoad(i,:) == 0)
+                                    model.elems(e).load.setLinearLoad(linLoad(i,:),model.elems(e).load.elemLoadCase(5,i));
+                                end
+                            end
+                            % Avoids numeric problems with new loads
+                            for i = 1:size(model.elems(e).load.linearLcl,1)
+                                if abs(model.elems(e).load.linearLcl(i)) <= 10^-10
+                                    model.elems(e).load.linearLcl(i) = 0;
+                                end
+                                if abs(model.elems(e).load.linearGbl(i)) <= 10^-10
+                                    model.elems(e).load.linearGbl(i) = 0;
+                                end
+                            end
+                        end
+                        % Set thermal loads
+                        if size(model.elems(e).load.elemLoadCase,1) <= 11
+                            model.elems(e).load.tempVar_X = 0;
+                            model.elems(e).load.tempVar_Y = 0;
+                            model.elems(e).load.tempVar_Z = 0;
+                        else
+                            model.elems(e).load.tempVar_X = model.elems(e).load.elemLoadCase(12,:) * model.loadComb(1:size(model.elems(e).load.elemLoadCase,2),lc-model.nlc);
+                            model.elems(e).load.tempVar_Y = model.elems(e).load.elemLoadCase(13,:) * model.loadComb(1:size(model.elems(e).load.elemLoadCase,2),lc-model.nlc);
+                            model.elems(e).load.tempVar_Z = model.elems(e).load.elemLoadCase(14,:) * model.loadComb(1:size(model.elems(e).load.elemLoadCase,2),lc-model.nlc);
+                        end
+                    else
+                        model.elems(e).load.uniformDir = 0;
+                        model.elems(e).load.uniformGbl = [];
+                        model.elems(e).load.uniformLcl = [];
+                        model.elems(e).load.linearDir = 0;
+                        model.elems(e).load.linearGbl = [];
+                        model.elems(e).load.linearLcl = [];
+                        model.elems(e).load.tempVar_X = 0;
+                        model.elems(e).load.tempVar_Y = 0;
+                        model.elems(e).load.tempVar_Z = 0;
+                    end
+                end
+            end
+                    
+        end
         
         %------------------------------------------------------------------
         % Cleans data structure of the entire model.
