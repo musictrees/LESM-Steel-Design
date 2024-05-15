@@ -398,3 +398,87 @@ if materialChangedFlag ~= 0
     delete(findobj('tag','textForceReactions'));
     delete(findobj('tag','textMomentReactions'));
 end
+
+%ronald
+function pushbutton_MaterialList_Callback(hObject, eventdata, handles)
+list=[];
+
+
+for i=1:1:length(Steel.steelList)
+   
+list = [list,(Steel.steelList{i}{1,1})]; %function for load a steel list
+
+end
+
+
+[indx,tf] = listdlg('SelectionMode','single','ListString',list,'Name','Material List','ListSize',[240 300]);%put a steel list in list and receive a select index response
+if isempty(indx)
+    
+else
+    % Increment number of materials and create a Material object
+    nmat = getappdata(0,'nmat');
+    nmat = nmat + 1;
+    e=(Steel.steelList{indx}{1,2});
+    v=(Steel.steelList{indx}{1,3});
+    te=(Steel.steelList{indx}{1,5});
+    rho=(Steel.steelList{indx}{1,6});
+    leak=(Steel.steelList{indx}{1,7});
+    yld=(Steel.steelList{indx}{1,8});
+    m = Steel(nmat,e,v,te,rho,leak,yld);
+    
+    % Insert created Material object in a vector of materials
+    if nmat ~= 1
+        materials = getappdata(0,'materials');
+    end
+    materials(nmat) = m;
+    
+    % Set model object properties
+    model = getappdata(0,'model');
+    model.materials = materials;
+    model.nmat = nmat;
+    
+    % Update materials uitable
+    id = m.id;
+    E = 1e-3*m.elasticity;
+    v = m.poisson;
+    G = 1e-3*m.shear;
+    alpha = m.thermExp;
+    rho = 1e3*m.density;
+    newMat = {id,E,v,G,alpha,rho};
+    tableData = get(handles.uitable_Materials,'Data');
+    if isempty(tableData)
+        set(handles.uitable_Materials,'Data',newMat)
+    elseif strcmp(tableData{1},'')
+        set(handles.uitable_Materials,'Data',newMat)
+    else
+        set(handles.uitable_Materials,'Data',vertcat(tableData,newMat))
+    end
+    clear m
+    
+    % Update list of materials to be deleted
+    mat_id = zeros(1,nmat);
+    for m = 1:nmat
+        mat_id(m) = m;
+    end
+    mat_id = num2str(mat_id,'%d\n');
+    set(handles.popupmenu_Delete,'Value',nmat,'string',mat_id,'Max',nmat)
+    
+    % Update information panel in GUI_Main
+    mdata = guidata(findobj('Tag','GUI_Main'));
+    infoPanelData = get(mdata.uitable_infoPanel,'Data');
+    infoPanelData(1,:) = {'Materials',nmat};
+    set(mdata.uitable_infoPanel,'Data',infoPanelData)
+    
+    % Update mouse property
+    mouse = getappdata(0,'mouse');
+    if ~isempty(mouse.originalData)
+        mouse.originalData = infoPanelData;
+    end
+    setappdata(0,'mouse',mouse)
+    
+    % Return variables to root
+    setappdata(0,'model',model);
+    setappdata(0,'materials',materials);
+    setappdata(0,'nmat',nmat);
+    setappdata(0,'move',0);
+end

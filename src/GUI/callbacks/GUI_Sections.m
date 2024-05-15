@@ -166,6 +166,8 @@ end
 % Update handles structure
 guidata(hObject, handles);
 
+setappdata(0,'handlesGuiSections',handles); %RONALD
+
 %--------------------------------------------------------------------------
 % Outputs from this function are returned to the command line.
 function varargout = GUI_Sections_OutputFcn(hObject, eventdata, handles)
@@ -315,6 +317,9 @@ end
 % Returns to main GUI without creating any Section object.
 function pushbutton_Cancel_Callback(hObject, eventdata, handles) %#ok<*INUSD>
 delete(gcf)
+
+function TESTE_Callback(hObject, eventdata, handles) %#ok<*INUSD> %RONALD
+GUI_NewSection
 
 %--------------------------------------------------------------------------
 % Executes on button press in pushbutton_Delete.

@@ -91,9 +91,13 @@ set(handles.popupmenu_Anm,'Value',2);
 
 % Material (100 GPa by default)
 initialMat = Material(1,100*10^6,0.3,10^-5,1.0);
+%RONALD INICIADO O LESM COM MATERIAL DE Aï¿½O
+initialMat = Steel(1,200000,0.32,12*1e-6,7.85,250,400);
 
 % Section
 initialSec = Section(1,0.01,0.01,0.01,0.00001,0.00001,0.00001,0.1,0.1);
+initialSec = W_Beam(1,30,5,10,60); % section do Ronald
+%Ronald add mais doi paramatros defaul type="wbeam" s = Section(nsec,Ax,Ay,Az,Ix,Iy,Iz,Hy,Hz);
 
 % Initialize variables and save them in root
 % fullname = path to file
@@ -376,9 +380,11 @@ if strcmp(choice,'OK')
     
     % Material 
     initialMat = Material(1,100*10^6,0.3,10^-5,1.0);
+     initialMat = Steel(1,200000,0.32,12*1e-6,7.85,250,400); % Material Ronald
     
     % Section
     initialSec = Section(1,0.01,0.01,0.01,0.00001,0.00001,0.00001,0.1,0.1);
+    initialSec = W_Beam(1,30,5,10,60); % Initial Sec do Ronald -> Possível fonte de problemas por atribuir um valor diferente da linha de código anterior.
     
     % Clean model object and set its new properties
     model = getappdata(0,'model');
@@ -5013,3 +5019,63 @@ else
     end
     delete(hObject);
 end
+
+function pushbutton_MetalCalculate_ClickedCallback(~, ~, handles) %#ok<DEFNU> %ronald
+
+designReport=DesignReport();
+model = getappdata(0,'model');
+fid = fopen('teste_site.html','w');
+fprintf(fid,'%s',designReport.criarHtml());
+fprintf(fid,'%s',designReport.createSideMenu(size(model.elems,2)));
+
+
+ wrapper=["<div id='page-content-wrapper'>"
+          "<div class='container'>"];
+ 
+      
+ fprintf(fid,'%s',wrapper);     
+%cabeï¿½alho
+
+header=[     "<div class='text-center' style='width: 100%;'>"
+             "<img src='lesm_logo.png' />"
+             "<p style='margin-top: 40px;' class='font-weight-bold'>Pontifical Catholic University of Rio de Janeiro</p>"
+             "</div>"
+             "<div class='row' style='margin-top: 50px;'>"
+             "<div class='col-md-12 text-center'>"
+             "<h1 class='mt-4'>Memorial de Calculo</h1>"
+             "<hr class='my-4'>"
+             "</div>"
+];
+fprintf(fid,'%s',header);
+%% 
+
+answer = questdlg('which one standard would you like to use?', ...
+	'Standars', ...
+	'EUROCODE3','NBR8800','NBR8800');
+% Handle response
+switch answer
+    case 'EUROCODE3'
+      
+    case 'NBR8800'
+        norma=NBR8800(fid);
+        model.designSolver(norma,fid);
+        
+    case 'No thank you'
+       
+end
+
+
+
+
+
+
+
+
+
+endWrapper=["</div></div>"];
+  
+       
+fprintf(fid,'%s',endWrapper);   
+fprintf(fid,'%s',designReport.fecharHtml());
+
+fclose(fid);
